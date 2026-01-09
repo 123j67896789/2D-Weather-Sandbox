@@ -63,7 +63,7 @@ These properties are not simply defined at the center of each cell, but using a 
 
 
 ### Iteration
-One iteration or timestep consists of the following steps:
+One iteration or timestep consists of the following steps: might add lift
 1.	Calculating pressure 
 2.	Calculating velocities
 3.	Advection
