@@ -12,6 +12,7 @@ out float density_out;
 uniform vec2 texelSize;
 uniform vec2 aspectRatios; // sim   canvas
 uniform vec3 view;         // Xpos  Ypos    Zoom
+uniform vec3 view3D;       // enabled, perspective strength, height offset
 
 void main()
 {
@@ -21,6 +22,13 @@ void main()
   outpos.y += view.y * aspectRatios[0];
 
   outpos *= view[2]; // zoom
+
+  if (view3D.x > 0.5) {
+    float depth = clamp(dropPosition.y, 0.0, 1.0);
+    float perspectiveMult = 1.0 - depth * view3D.y;
+    outpos.x *= perspectiveMult;
+    outpos.y -= depth * view3D.z;
+  }
 
   outpos.y *= aspectRatios[1] / aspectRatios[0];
 
