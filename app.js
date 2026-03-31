@@ -192,7 +192,10 @@ const presets = [
   {name : 'Supercell in the Netherlands', location : 'De Bilt', date : '2014-06-09', hour : 12}, {name : 'Cold winter on Gotland', location : 'Gotland', date : '2025-01-03', hour : 12},
   {name : 'Spring cells in Germany', location : 'Stuttgart', date : '2021-06-09', hour : 12}, {name : 'Hot summer in Spain', location : 'Madrid', date : '2018-07-07', hour : 12},
   {name : 'Double inversion over Sicily', location : 'Sicily', date : '2021-07-14', hour : 12}, {name : 'Low base with CAPE in Rome', location : 'Rome', date : '2021-07-16', hour : 12},
-  {name : 'High low level cape over mediterranean in fall', location : 'Ajaccio', date : '2025-10-23', hour : 12}
+  {name : 'High low level cape over mediterranean in fall', location : 'Ajaccio', date : '2025-10-23', hour : 12},
+  {name : 'Classic Oklahoma supercell setup', location : 'Norman (OK)', date : '2013-05-31', hour : 12},
+  {name : 'Central Oklahoma severe outbreak profile', location : 'Oklahoma City (OK)', date : '1999-05-03', hour : 0},
+  {name : 'Eastern Oklahoma tornado season sounding', location : 'Tulsa (OK)', date : '2019-05-20', hour : 0}
 ];
 
 var startDate;
@@ -286,6 +289,9 @@ const soundingStations = {
   'Cyprus' : {id : 17607, lat : 35.1264},
   'Palestine' : {id : 40179, lat : 32.0853},
   'Cairo' : {id : 62378, lat : 30.0444},
+  'Norman (OK)' : {id : 72357, lat : 35.22},
+  'Oklahoma City (OK)' : {id : 72353, lat : 35.40},
+  'Tulsa (OK)' : {id : 72356, lat : 36.20},
 };
 
 function createStationSelect()
