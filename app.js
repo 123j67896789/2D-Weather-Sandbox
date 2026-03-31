@@ -6839,20 +6839,19 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   async function loadSourceFile(fileName)
   {
     try {
-      var request = new XMLHttpRequest();
-      request.open('GET', fileName, false);
-      request.send(null);
+      const response = await fetch(fileName, {cache : 'no-cache'});
+
+      if (response.status === 200) {
+        return await response.text();
+      } else if (response.status === 404) {
+        throw new Error('File not found: ' + fileName);
+      } else {
+        throw new Error('File loading error ' + response.status + ': ' + fileName);
+      }
     } catch (error) {
       await loadingBar.showError('ERROR loading shader files! If you just opened index.html, try again using a local server!');
       throw error;
     }
-
-    if (request.status === 200)
-      return request.responseText;
-    else if (request.status === 404)
-      throw 'File not found: ' + fileName;
-    else
-      throw 'File loading error' + request.status;
   }
 
   async function loadShader(nameIn)
@@ -6893,7 +6892,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
       // Compile error
-      throw filename + ' COMPILATION ' + gl.getShaderInfoLog(shader);
+      const compileError = filename + ' COMPILATION ' + gl.getShaderInfoLog(shader);
+      await loadingBar.showError(compileError);
+      throw compileError;
     }
     return new Promise(async (resolve) => {
       await loadingBar.add(3, 'Loading shader: ' + nameIn);

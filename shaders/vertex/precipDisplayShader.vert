@@ -12,6 +12,11 @@ out float density_out;
 uniform vec2 texelSize;
 uniform vec2 aspectRatios; // sim   canvas
 uniform vec3 view;         // Xpos  Ypos    Zoom
+uniform float stormDepth;
+uniform float threeDEnabled;
+uniform vec3 threeDRotationDeg; // yaw, pitch, roll
+uniform float threeDOrthoScale;
+uniform float threeDDepthOffset;
 uniform vec3 view3D;       // enabled, perspective strength, height offset
 uniform float stormDepth;
 
@@ -35,6 +40,12 @@ mat3 rotY(float a)
 
 mat3 rotZ(float a)
 {
+  float c = cos(a);
+  float s = sin(a);
+  return mat3(c, -s, 0.0,
+              s, c, 0.0,
+              0.0, 0.0, 1.0);
+}
   vec2 outpos = dropPosition.xy;
 
 void main()
@@ -45,6 +56,10 @@ void main()
   pos.y += view.y * aspectRatios[0];
   pos.z += threeDDepthOffset * max(stormDepth, 0.0001);
 
+  if (threeDEnabled > 0.5) {
+    vec3 radiansRot = radians(threeDRotationDeg);
+    mat3 r = rotY(radiansRot.x) * rotX(radiansRot.y) * rotZ(radiansRot.z);
+    pos = r * pos;
   if (view3D.x > 0.5) {
     float depth = clamp((dropPosition.z / max(stormDepth, 0.0001)) * 0.5 + 0.5, 0.0, 1.0);
     float perspectiveMult = 1.0 - depth * view3D.y;
@@ -59,6 +74,7 @@ void main()
   gl_Position = vec4(outpos, 0.0, 1.0);
 
   float size = 4.0;
+  gl_PointSize = view.z * size / aspectRatios[0];
 
   gl_PointSize = view[2] * size / aspectRatios[0];
 

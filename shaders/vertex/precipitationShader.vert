@@ -52,6 +52,13 @@ uniform float supercellShear;
 uniform float supercellInflowTwist;
 uniform float mesocycloneLift;
 uniform float hailCoreBoost;
+uniform float spcRiskMult;
+uniform float capeJkg;
+uniform float srh;
+uniform float stp;
+uniform float vtp;
+uniform float dewPointC;
+uniform float helicity;
 
 #include "common.glsl"
 
@@ -96,6 +103,10 @@ void main()
       threshold = subZeroThreshold;
 
     if (water[CLOUD] > threshold && base[TEMPERATURE] < 500.) {
+      float capeMult = clamp(capeJkg / 2500.0, 0.25, 2.5);
+      float stpMult = 1.0 + stp * 0.10;
+      float moistureMult = clamp(map_range(CtoK(dewPointC), CtoK(-10.0), CtoK(26.0), 0.6, 1.5), 0.4, 1.8);
+      float spawnChance = ((water[CLOUD] - threshold) / (inactiveDroplets + 10.0)) * resolution.x * resolution.y * spawnChanceMult * spcRiskMult * capeMult * stpMult * moistureMult;
       float spawnChance = ((water[CLOUD] - threshold) / (inactiveDroplets + 10.0)) * resolution.x * resolution.y * spawnChanceMult;
       float nrmRand = fract(pow(water[CLOUD] * 10.0, 2.0));
 
@@ -183,6 +194,9 @@ void main()
 
       float growthRate = max(map_range(realTemp, CtoK(0.0), CtoK(-30.0), growthRate0C, growthRate_30C), growthRate0C);
 
+      float growth = water[CLOUD] * growthRate * surfaceArea * (1.0 + vtp * 0.08);
+
+
       float growth = water[CLOUD] * growthRate * surfaceArea;
 
       if (realTemp < CtoK(0.0) && water[CLOUD] > 0.0 && density == 1.0) {
@@ -234,6 +248,14 @@ void main()
       // Update position
       newPos.xy += base.xy / resolution * 2.;
 
+      float srhTerm = clamp(srh / 300.0, 0.0, 3.0);
+      float helicityTerm = clamp(helicity / 350.0, 0.0, 3.0);
+      float zShear = base.x * supercellShear * (0.3 + srhTerm * 0.15);
+      float inflowTwist = supercellInflowTwist * (-newPos.y) * sign(base.x) * (0.25 + helicityTerm * 0.12);
+      newPos.z += zShear * texelSize.x + inflowTwist * texelSize.y;
+
+      float capeUpdraft = clamp(capeJkg / 4000.0, 0.0, 1.6);
+      float updraftFactor = clamp((base.y * 0.5 + water[CLOUD] * 0.25 + capeUpdraft * 0.4) * mesocycloneLift, -1.0, 2.5);
       float zShear = base.x * supercellShear * 0.5;
       float inflowTwist = supercellInflowTwist * (-newPos.y) * sign(base.x) * 0.5;
       newPos.z += zShear * texelSize.x + inflowTwist * texelSize.y;
