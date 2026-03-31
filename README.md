@@ -2,9 +2,7 @@
 
 Previously called "Weather_Sim_4"
 
-This project aims to produce a semirealistic realtime interactive simulation of weather in Earth's troposphere. The fluid grid remains 2D for performance, while precipitation particles evolve in a volumetric depth axis to emulate 3D storm structure and supercell behavior, rendered with an orthographic 3D transform (yaw/pitch/roll) without perspective distortion.
-
-The UI also exposes severe-weather style controls (SPC risk category, CAPE, SRH, STP, VTP, dew point, and helicity) that feed into precipitation/supercell particle behavior.
+This projects aims to produce a semirealistic realtime interactive simulation of the weather in earth's troposphere. The fluid grid remains 2D for performance, while precipitation particles now evolve in a volumetric depth axis to emulate 3D storm structure and supercell behavior.
 
 
 ## Clouds and precipitation

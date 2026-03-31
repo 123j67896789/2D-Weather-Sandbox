@@ -107,6 +107,7 @@ void main()
       float stpMult = 1.0 + stp * 0.10;
       float moistureMult = clamp(map_range(CtoK(dewPointC), CtoK(-10.0), CtoK(26.0), 0.6, 1.5), 0.4, 1.8);
       float spawnChance = ((water[CLOUD] - threshold) / (inactiveDroplets + 10.0)) * resolution.x * resolution.y * spawnChanceMult * spcRiskMult * capeMult * stpMult * moistureMult;
+      float spawnChance = ((water[CLOUD] - threshold) / (inactiveDroplets + 10.0)) * resolution.x * resolution.y * spawnChanceMult;
       float nrmRand = fract(pow(water[CLOUD] * 10.0, 2.0));
 
       if (spawnChance > nrmRand) {                                       // spawn precipitation particle
@@ -195,6 +196,9 @@ void main()
 
       float growth = water[CLOUD] * growthRate * surfaceArea * (1.0 + vtp * 0.08);
 
+
+      float growth = water[CLOUD] * growthRate * surfaceArea;
+
       if (realTemp < CtoK(0.0) && water[CLOUD] > 0.0 && density == 1.0) {
         growth += surfaceArea * water[PRECIPITATION] * (0.0030 + hailCoreBoost * 0.0030);
       }
@@ -252,6 +256,11 @@ void main()
 
       float capeUpdraft = clamp(capeJkg / 4000.0, 0.0, 1.6);
       float updraftFactor = clamp((base.y * 0.5 + water[CLOUD] * 0.25 + capeUpdraft * 0.4) * mesocycloneLift, -1.0, 2.5);
+      float zShear = base.x * supercellShear * 0.5;
+      float inflowTwist = supercellInflowTwist * (-newPos.y) * sign(base.x) * 0.5;
+      newPos.z += zShear * texelSize.x + inflowTwist * texelSize.y;
+
+      float updraftFactor = clamp((base.y * 0.5 + water[CLOUD] * 0.25) * mesocycloneLift, -1.0, 2.0);
       newPos.z += updraftFactor * texelSize.y;
 
       newPos.y -= fallSpeed * newDensity * sqrt(totalMass / surfaceArea);

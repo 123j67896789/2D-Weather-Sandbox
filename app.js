@@ -195,10 +195,7 @@ const presets = [
   {name : 'High low level cape over mediterranean in fall', location : 'Ajaccio', date : '2025-10-23', hour : 12},
   {name : 'Classic Oklahoma supercell setup', location : 'Norman (OK)', date : '2013-05-31', hour : 12},
   {name : 'Central Oklahoma severe outbreak profile', location : 'Oklahoma City (OK)', date : '1999-05-03', hour : 0},
-  {name : 'Eastern Oklahoma tornado season sounding', location : 'Tulsa (OK)', date : '2019-05-20', hour : 0},
-  {name : 'Texas dryline supercell setup', location : 'Fort Worth (TX)', date : '2016-04-26', hour : 0},
-  {name : 'High-plains severe profile', location : 'Denver (CO)', date : '2017-05-08', hour : 0},
-  {name : 'Southeast US moist profile', location : 'Miami (FL)', date : '2020-06-06', hour : 12}
+  {name : 'Eastern Oklahoma tornado season sounding', location : 'Tulsa (OK)', date : '2019-05-20', hour : 0}
 ];
 
 var startDate;
@@ -295,12 +292,6 @@ const soundingStations = {
   'Norman (OK)' : {id : 72357, lat : 35.22},
   'Oklahoma City (OK)' : {id : 72353, lat : 35.40},
   'Tulsa (OK)' : {id : 72356, lat : 36.20},
-  'Fort Worth (TX)' : {id : 72249, lat : 32.83},
-  'Denver (CO)' : {id : 72469, lat : 39.86},
-  'Miami (FL)' : {id : 72202, lat : 25.76},
-  'Birmingham (AL)' : {id : 72230, lat : 33.52},
-  'Seattle area (WA)' : {id : 72797, lat : 47.95},
-  'Salt Lake City (UT)' : {id : 72572, lat : 40.77},
 };
 
 function createStationSelect()
@@ -394,25 +385,12 @@ const guiControls_default = {
   threeDView : true,
   threeDStrength : 0.35,
   threeDHeightOffset : 0.18,
-  threeDYaw : 35.0,
-  threeDPitch : 22.0,
-  threeDRoll : 0.0,
-  threeDOrthoScale : 1.0,
-  threeDDepthOffset : 0.0,
   threeDStormDepth : 0.6,
   threeDStormTilt : 0.18,
   supercellShear : 0.3,
   supercellInflowTwist : 0.15,
   mesocycloneLift : 0.25,
   hailCoreBoost : 0.25,
-  // Severe weather indices defaults:
-  spcRisk : 'SPC_ENHANCED',
-  capeJkg : 2500.0,
-  srh : 220.0,
-  stp : 3.0,
-  vtp : 2.5,
-  dewPointC : 22.0,
-  helicity : 260.0,
   camSpeed : 0.01,
   exposure : 1.0,
   timeOfDay : 9.9,
@@ -3529,13 +3507,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'supercellInflowTwist'), guiControls.supercellInflowTwist);
     gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'mesocycloneLift'), guiControls.mesocycloneLift);
     gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'hailCoreBoost'), guiControls.hailCoreBoost);
-    gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'spcRiskMult'), getSpcRiskMultiplier(guiControls.spcRisk));
-    gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'capeJkg'), guiControls.capeJkg);
-    gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'srh'), guiControls.srh);
-    gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'stp'), guiControls.stp);
-    gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'vtp'), guiControls.vtp);
-    gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'dewPointC'), guiControls.dewPointC);
-    gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'helicity'), guiControls.helicity);
     gl.useProgram(postProcessingProgram);
     gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), guiControls.exposure);
   }
@@ -6532,10 +6503,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.useProgram(precipDisplayProgram);
         gl.uniform2f(gl.getUniformLocation(precipDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
         gl.uniform3f(gl.getUniformLocation(precipDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
-        gl.uniform1f(gl.getUniformLocation(precipDisplayProgram, 'threeDEnabled'), guiControls.threeDView ? 1.0 : 0.0);
-        gl.uniform3f(gl.getUniformLocation(precipDisplayProgram, 'threeDRotationDeg'), guiControls.threeDYaw, guiControls.threeDPitch, guiControls.threeDRoll);
-        gl.uniform1f(gl.getUniformLocation(precipDisplayProgram, 'threeDOrthoScale'), guiControls.threeDOrthoScale);
-        gl.uniform1f(gl.getUniformLocation(precipDisplayProgram, 'threeDDepthOffset'), guiControls.threeDDepthOffset);
+        gl.uniform3f(gl.getUniformLocation(precipDisplayProgram, 'view3D'), ...getDisplay3DUniformValues());
         gl.uniform1f(gl.getUniformLocation(precipDisplayProgram, 'stormDepth'), Math.max(guiControls.threeDStormDepth, 0.001));
         gl.bindVertexArray(destVAO);
         gl.drawArrays(gl.POINTS, 0, NUM_DROPLETS);

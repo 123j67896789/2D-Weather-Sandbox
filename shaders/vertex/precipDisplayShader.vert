@@ -17,6 +17,8 @@ uniform float threeDEnabled;
 uniform vec3 threeDRotationDeg; // yaw, pitch, roll
 uniform float threeDOrthoScale;
 uniform float threeDDepthOffset;
+uniform vec3 view3D;       // enabled, perspective strength, height offset
+uniform float stormDepth;
 
 mat3 rotX(float a)
 {
@@ -44,6 +46,7 @@ mat3 rotZ(float a)
               s, c, 0.0,
               0.0, 0.0, 1.0);
 }
+  vec2 outpos = dropPosition.xy;
 
 void main()
 {
@@ -57,6 +60,11 @@ void main()
     vec3 radiansRot = radians(threeDRotationDeg);
     mat3 r = rotY(radiansRot.x) * rotX(radiansRot.y) * rotZ(radiansRot.z);
     pos = r * pos;
+  if (view3D.x > 0.5) {
+    float depth = clamp((dropPosition.z / max(stormDepth, 0.0001)) * 0.5 + 0.5, 0.0, 1.0);
+    float perspectiveMult = 1.0 - depth * view3D.y;
+    outpos.x *= perspectiveMult;
+    outpos.y -= depth * view3D.z;
   }
 
   vec2 outpos = pos.xy;
@@ -67,6 +75,8 @@ void main()
 
   float size = 4.0;
   gl_PointSize = view.z * size / aspectRatios[0];
+
+  gl_PointSize = view[2] * size / aspectRatios[0];
 
   position_out = dropPosition;
   mass_out = mass;
