@@ -342,7 +342,7 @@ const radToDeg = 57.2957795;
 const kmToMil = 0.62137;
 const mToFt = 3.28084;
 
-const saveFileVersionID = 263574036; // Uint32 id to check if save file is compatible
+const saveFileVersionID = 263574037; // Uint32 id to check if save file is compatible
 
 const guiControls_default = {
   vorticity : 0.005,
@@ -379,6 +379,12 @@ const guiControls_default = {
   threeDView : true,
   threeDStrength : 0.35,
   threeDHeightOffset : 0.18,
+  threeDStormDepth : 0.6,
+  threeDStormTilt : 0.18,
+  supercellShear : 0.3,
+  supercellInflowTwist : 0.15,
+  mesocycloneLift : 0.25,
+  hailCoreBoost : 0.25,
   camSpeed : 0.01,
   exposure : 1.0,
   timeOfDay : 9.9,
@@ -461,6 +467,8 @@ const timePerIteration = 0.00008; // in hours (0.00008 = 0.288 sec, at 40m cell 
 
 var NUM_DROPLETS;
 const NUM_DROPLETS_DEVIDER = 25; // 25
+const LEGACY_VALS_PER_DROPLET = 5;
+const VALS_PER_DROPLET = 6;
 
 let hdrFBO;
 
@@ -1273,7 +1281,7 @@ async function loadData()
     let versionBuf = await versionBlob.arrayBuffer();
     let version = new Uint32Array(versionBuf)[0];                // convert to Uint32
 
-    if (version == saveFileVersionID || version == 1939327491) { // also allow previous version, settings will not be loaded
+    if (version == saveFileVersionID || version == 263574036 || version == 1939327491) { // also allow previous versions, settings may not be loaded
       // check version id, only proceed if file has the right version id
       let fileArrBuf = await file.slice(4).arrayBuffer(); // slice from behind version id to
       // the end of the file
@@ -1322,13 +1330,31 @@ async function loadData()
       let wallTexBuf = await wallTexBlob.arrayBuffer();
       let wallTexI8 = new Int8Array(wallTexBuf);
 
+      const has3DDroplets = version == saveFileVersionID;
+      const valuesPerDropletInFile = has3DDroplets ? VALS_PER_DROPLET : LEGACY_VALS_PER_DROPLET;
+
       sliceStart = sliceEnd;
-      sliceEnd += NUM_DROPLETS * Float32Array.BYTES_PER_ELEMENT * 5;
+      sliceEnd += NUM_DROPLETS * Float32Array.BYTES_PER_ELEMENT * valuesPerDropletInFile;
       let precipArrayBlob = dataBlob.slice(sliceStart, sliceEnd);
       let precipArrayBuf = await precipArrayBlob.arrayBuffer();
       let precipArray = new Float32Array(precipArrayBuf);
 
-      if (version == saveFileVersionID) {             // only load settings and weather stations from save file if it's the newest version with all the settings included
+      if (!has3DDroplets) { // convert legacy 2D droplet saves (x, y, water, ice, density) to 3D format with neutral z=0
+        let convertedPrecipArray = new Float32Array(NUM_DROPLETS * VALS_PER_DROPLET);
+        for (let i = 0; i < NUM_DROPLETS; i++) {
+          const oldOffset = i * LEGACY_VALS_PER_DROPLET;
+          const newOffset = i * VALS_PER_DROPLET;
+          convertedPrecipArray[newOffset + 0] = precipArray[oldOffset + 0];
+          convertedPrecipArray[newOffset + 1] = precipArray[oldOffset + 1];
+          convertedPrecipArray[newOffset + 2] = 0.0;
+          convertedPrecipArray[newOffset + 3] = precipArray[oldOffset + 2];
+          convertedPrecipArray[newOffset + 4] = precipArray[oldOffset + 3];
+          convertedPrecipArray[newOffset + 5] = precipArray[oldOffset + 4];
+        }
+        precipArray = convertedPrecipArray;
+      }
+
+      if (version == saveFileVersionID || version == 263574036) { // only load settings and weather stations from save file if included
         sliceStart = sliceEnd;
         sliceEnd += 1 * Int16Array.BYTES_PER_ELEMENT; // one 16 bit int indicates number of weather stations
         let numWeatherStationsArrayBlob = dataBlob.slice(sliceStart, sliceEnd);
@@ -3449,6 +3475,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'freezingRate'), guiControls.freezingRate);
     gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'meltingRate'), guiControls.meltingRate);
     gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'evapRate'), guiControls.evapRate);
+    gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'stormDepth'), guiControls.threeDStormDepth);
+    gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'stormTilt'), guiControls.threeDStormTilt);
+    gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'supercellShear'), guiControls.supercellShear);
+    gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'supercellInflowTwist'), guiControls.supercellInflowTwist);
+    gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'mesocycloneLift'), guiControls.mesocycloneLift);
+    gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'hailCoreBoost'), guiControls.hailCoreBoost);
     gl.useProgram(postProcessingProgram);
     gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), guiControls.exposure);
   }
@@ -3759,6 +3791,48 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'evapRate'), guiControls.evapRate);
       })
       .name('Evaporation Rate');
+
+    precipitation_folder.add(guiControls, 'threeDStormDepth', 0.0, 1.0, 0.01)
+      .onChange(function() {
+        gl.useProgram(precipitationProgram);
+        gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'stormDepth'), guiControls.threeDStormDepth);
+      })
+      .name('3D Storm Depth');
+
+    precipitation_folder.add(guiControls, 'threeDStormTilt', -0.5, 0.5, 0.01)
+      .onChange(function() {
+        gl.useProgram(precipitationProgram);
+        gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'stormTilt'), guiControls.threeDStormTilt);
+      })
+      .name('3D Storm Tilt');
+
+    precipitation_folder.add(guiControls, 'supercellShear', 0.0, 1.0, 0.01)
+      .onChange(function() {
+        gl.useProgram(precipitationProgram);
+        gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'supercellShear'), guiControls.supercellShear);
+      })
+      .name('Vertical Wind Shear');
+
+    precipitation_folder.add(guiControls, 'supercellInflowTwist', 0.0, 1.0, 0.01)
+      .onChange(function() {
+        gl.useProgram(precipitationProgram);
+        gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'supercellInflowTwist'), guiControls.supercellInflowTwist);
+      })
+      .name('Inflow Curvature');
+
+    precipitation_folder.add(guiControls, 'mesocycloneLift', 0.0, 1.5, 0.01)
+      .onChange(function() {
+        gl.useProgram(precipitationProgram);
+        gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'mesocycloneLift'), guiControls.mesocycloneLift);
+      })
+      .name('Mesocyclone Lift');
+
+    precipitation_folder.add(guiControls, 'hailCoreBoost', 0.0, 1.5, 0.01)
+      .onChange(function() {
+        gl.useProgram(precipitationProgram);
+        gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'hailCoreBoost'), guiControls.hailCoreBoost);
+      })
+      .name('Hail Core Boost');
 
     precipitation_folder.add(guiControls, 'inactiveDroplets', 0, NUM_DROPLETS).listen().name('Inactive Droplets');
 
@@ -4920,6 +4994,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       // seperate push for each element is fastest
       rainDrops.push(Math.random());         // X
       rainDrops.push(Math.random());         // Y
+      rainDrops.push(0.0);                   // Z (depth)
       rainDrops.push(-10.0 + Math.random()); // water negative to disable
       rainDrops.push(Math.random());         // ice
       rainDrops.push(Math.random());         // density
@@ -4937,10 +5012,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.enableVertexAttribArray(densityAttribLocation);
     gl.vertexAttribPointer(
       dropPositionAttribLocation,         // Attribute location
-      2,                                  // Number of elements per attribute
+      3,                                  // Number of elements per attribute
       gl.FLOAT,                           // Type of elements
       gl.FALSE,
-      5 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
+      VALS_PER_DROPLET * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
       0                                   // Offset from the beginning of a single vertex to this attribute
     );
     gl.vertexAttribPointer(
@@ -4948,8 +5023,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       2,                                  // Number of elements per attribute
       gl.FLOAT,                           // Type of elements
       gl.FALSE,
-      5 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
-      2 * Float32Array.BYTES_PER_ELEMENT  // Offset from the beginning of a
+      VALS_PER_DROPLET * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
+      3 * Float32Array.BYTES_PER_ELEMENT  // Offset from the beginning of a
       // single vertex to this attribute
     );
     gl.vertexAttribPointer(
@@ -4957,8 +5032,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       1,                                  // Number of elements per attribute
       gl.FLOAT,                           // Type of elements
       gl.FALSE,
-      5 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
-      4 * Float32Array.BYTES_PER_ELEMENT  // Offset from the beginning of a
+      VALS_PER_DROPLET * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
+      5 * Float32Array.BYTES_PER_ELEMENT  // Offset from the beginning of a
       // single vertex to this attribute
     );
 
@@ -4979,10 +5054,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.enableVertexAttribArray(densityAttribLocation);
     gl.vertexAttribPointer(
       dropPositionAttribLocation,         // Attribute location
-      2,                                  // Number of elements per attribute
+      3,                                  // Number of elements per attribute
       gl.FLOAT,                           // Type of elements
       gl.FALSE,
-      5 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
+      VALS_PER_DROPLET * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
       0                                   // Offset from the beginning of a single vertex to this attribute
     );
     gl.vertexAttribPointer(
@@ -4990,8 +5065,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       2,                                  // Number of elements per attribute
       gl.FLOAT,                           // Type of elements
       gl.FALSE,
-      5 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
-      2 * Float32Array.BYTES_PER_ELEMENT  // Offset from the beginning of a
+      VALS_PER_DROPLET * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
+      3 * Float32Array.BYTES_PER_ELEMENT  // Offset from the beginning of a
       // single vertex to this attribute
     );
     gl.vertexAttribPointer(
@@ -4999,8 +5074,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       1,                                  // Number of elements per attribute
       gl.FLOAT,                           // Type of elements
       gl.FALSE,
-      5 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
-      4 * Float32Array.BYTES_PER_ELEMENT  // Offset from the beginning of a
+      VALS_PER_DROPLET * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
+      5 * Float32Array.BYTES_PER_ELEMENT  // Offset from the beginning of a
       // single vertex to this attribute
     );
 
@@ -5016,7 +5091,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   }
 
 
-  const valsPerDroplet = 5;
+  const valsPerDroplet = VALS_PER_DROPLET;
 
   function logDropletsAndToggleFollow()
   {
@@ -5029,7 +5104,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     // log data of all the droplets within the brush
     let tempDroplets = new Float32Array(valsPerDroplet * NUM_DROPLETS);
-    gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, even ? precipVertexBuffer_0 : precipVertexBuffer_1); // x, y, water, ice, density
+    gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, even ? precipVertexBuffer_0 : precipVertexBuffer_1); // x, y, z, water, ice, density
     gl.getBufferSubData(gl.TRANSFORM_FEEDBACK_BUFFER, 0, tempDroplets);
 
     console.log(' ');
@@ -5044,11 +5119,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       let i = n * valsPerDroplet;
       let X = tempDroplets[i + 0];
       let Y = tempDroplets[i + 1];
+      let Z = tempDroplets[i + 2];
       let x = (X + 1.0) / 2.0;
       let y = (Y + 1.0) / 2.0;
-      let water = tempDroplets[i + 2];
-      let ice = tempDroplets[i + 3];
-      let density = tempDroplets[i + 4];
+      let water = tempDroplets[i + 3];
+      let ice = tempDroplets[i + 4];
+      let density = tempDroplets[i + 5];
 
       let dx = (mouseXinSim - x) * sim_aspect;
       let dy = mouseYinSim - y;
@@ -5058,6 +5134,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         console.log('n:', n);
         console.log('x:', x);
         console.log('y:', y);
+        console.log('z:', Z);
         console.log('water:', water);
         console.log('Ice:', ice);
         console.log('Density:', density);
@@ -6073,11 +6150,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       ctx.font = '15px Arial';
       ctx.fillStyle = '#00AAFF';
-      ctx.fillText('Water: ' + dropletInfo[2].toFixed(2), 0, 15);
+      ctx.fillText('Water: ' + dropletInfo[3].toFixed(2), 0, 15);
       ctx.fillStyle = '#FFFFFF';
-      ctx.fillText('Ice     : ' + dropletInfo[3].toFixed(2), 0, 30);
+      ctx.fillText('Ice     : ' + dropletInfo[4].toFixed(2), 0, 30);
       ctx.fillStyle = '#00FF00';
-      ctx.fillText('Dens : ' + dropletInfo[4].toFixed(2), 0, 45);
+      ctx.fillText('Dens : ' + dropletInfo[5].toFixed(2), 0, 45);
+      ctx.fillStyle = '#FFAA00';
+      ctx.fillText('Depth: ' + dropletInfo[2].toFixed(2), 0, 60);
     }
 
     if (airplaneMode) {
@@ -6337,6 +6416,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.uniform2f(gl.getUniformLocation(precipDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
         gl.uniform3f(gl.getUniformLocation(precipDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
         gl.uniform3f(gl.getUniformLocation(precipDisplayProgram, 'view3D'), ...getDisplay3DUniformValues());
+        gl.uniform1f(gl.getUniformLocation(precipDisplayProgram, 'stormDepth'), Math.max(guiControls.threeDStormDepth, 0.001));
         gl.bindVertexArray(destVAO);
         gl.drawArrays(gl.POINTS, 0, NUM_DROPLETS);
         gl.bindVertexArray(fluidVao); // set screenfilling rect again
