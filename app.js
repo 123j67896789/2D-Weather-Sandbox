@@ -192,7 +192,10 @@ const presets = [
   {name : 'Supercell in the Netherlands', location : 'De Bilt', date : '2014-06-09', hour : 12}, {name : 'Cold winter on Gotland', location : 'Gotland', date : '2025-01-03', hour : 12},
   {name : 'Spring cells in Germany', location : 'Stuttgart', date : '2021-06-09', hour : 12}, {name : 'Hot summer in Spain', location : 'Madrid', date : '2018-07-07', hour : 12},
   {name : 'Double inversion over Sicily', location : 'Sicily', date : '2021-07-14', hour : 12}, {name : 'Low base with CAPE in Rome', location : 'Rome', date : '2021-07-16', hour : 12},
-  {name : 'High low level cape over mediterranean in fall', location : 'Ajaccio', date : '2025-10-23', hour : 12}
+  {name : 'High low level cape over mediterranean in fall', location : 'Ajaccio', date : '2025-10-23', hour : 12},
+  {name : 'Classic Oklahoma supercell setup', location : 'Norman (OK)', date : '2013-05-31', hour : 12},
+  {name : 'Central Oklahoma severe outbreak profile', location : 'Oklahoma City (OK)', date : '1999-05-03', hour : 0},
+  {name : 'Eastern Oklahoma tornado season sounding', location : 'Tulsa (OK)', date : '2019-05-20', hour : 0}
 ];
 
 var startDate;
@@ -286,6 +289,9 @@ const soundingStations = {
   'Cyprus' : {id : 17607, lat : 35.1264},
   'Palestine' : {id : 40179, lat : 32.0853},
   'Cairo' : {id : 62378, lat : 30.0444},
+  'Norman (OK)' : {id : 72357, lat : 35.22},
+  'Oklahoma City (OK)' : {id : 72353, lat : 35.40},
+  'Tulsa (OK)' : {id : 72356, lat : 36.20},
 };
 
 function createStationSelect()
@@ -425,6 +431,26 @@ function getDisplay3DUniformValues()
   const strength = guiControls?.threeDStrength ?? 0.0;
   const heightOffset = guiControls?.threeDHeightOffset ?? 0.0;
   return [enabled, strength, heightOffset];
+}
+
+function getSpcRiskMultiplier(risk)
+{
+  switch (risk) {
+  case 'SPC_TSTM':
+    return 0.75;
+  case 'SPC_MRGL':
+    return 0.90;
+  case 'SPC_SLGT':
+    return 1.00;
+  case 'SPC_ENHANCED':
+    return 1.15;
+  case 'SPC_MODERATE':
+    return 1.30;
+  case 'SPC_HIGH':
+    return 1.50;
+  default:
+    return 1.0;
+  }
 }
 
 var displayVectorField = false;
@@ -3836,6 +3862,65 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     precipitation_folder.add(guiControls, 'inactiveDroplets', 0, NUM_DROPLETS).listen().name('Inactive Droplets');
 
+    var severeIndices_folder = datGui.addFolder('Severe Storm Indices');
+
+    severeIndices_folder
+      .add(guiControls, 'spcRisk', {
+        'General Thunder' : 'SPC_TSTM',
+        'Marginal' : 'SPC_MRGL',
+        'Slight' : 'SPC_SLGT',
+        'Enhanced' : 'SPC_ENHANCED',
+        'Moderate' : 'SPC_MODERATE',
+        'High' : 'SPC_HIGH',
+      })
+      .onChange(function() {
+        gl.useProgram(precipitationProgram);
+        gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'spcRiskMult'), getSpcRiskMultiplier(guiControls.spcRisk));
+      })
+      .name('SPC Risk');
+
+    severeIndices_folder.add(guiControls, 'capeJkg', 0.0, 6000.0, 10.0)
+      .onChange(function() {
+        gl.useProgram(precipitationProgram);
+        gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'capeJkg'), guiControls.capeJkg);
+      })
+      .name('CAPE (J/kg)');
+
+    severeIndices_folder.add(guiControls, 'srh', 0.0, 800.0, 5.0)
+      .onChange(function() {
+        gl.useProgram(precipitationProgram);
+        gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'srh'), guiControls.srh);
+      })
+      .name('SRH');
+
+    severeIndices_folder.add(guiControls, 'stp', 0.0, 15.0, 0.1)
+      .onChange(function() {
+        gl.useProgram(precipitationProgram);
+        gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'stp'), guiControls.stp);
+      })
+      .name('STP');
+
+    severeIndices_folder.add(guiControls, 'vtp', 0.0, 15.0, 0.1)
+      .onChange(function() {
+        gl.useProgram(precipitationProgram);
+        gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'vtp'), guiControls.vtp);
+      })
+      .name('VTP');
+
+    severeIndices_folder.add(guiControls, 'dewPointC', -30.0, 35.0, 0.1)
+      .onChange(function() {
+        gl.useProgram(precipitationProgram);
+        gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'dewPointC'), guiControls.dewPointC);
+      })
+      .name('Dew Point (°C)');
+
+    severeIndices_folder.add(guiControls, 'helicity', 0.0, 1000.0, 5.0)
+      .onChange(function() {
+        gl.useProgram(precipitationProgram);
+        gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'helicity'), guiControls.helicity);
+      })
+      .name('Helicity');
+
 
     var display_folder = datGui.addFolder('Display');
 
@@ -3883,8 +3968,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     display_folder.add(guiControls, 'SmoothCam').onChange(function() { cam.smooth = guiControls.SmoothCam; }).name('Smooth Camera');
     display_folder.add(guiControls, 'threeDView').name('Enable 3D View');
-    display_folder.add(guiControls, 'threeDStrength', 0.0, 0.8, 0.01).name('3D Perspective');
-    display_folder.add(guiControls, 'threeDHeightOffset', -0.5, 0.5, 0.01).name('3D Height Offset');
+    display_folder.add(guiControls, 'threeDYaw', -180.0, 180.0, 1.0).name('3D Yaw');
+    display_folder.add(guiControls, 'threeDPitch', -89.0, 89.0, 1.0).name('3D Pitch');
+    display_folder.add(guiControls, 'threeDRoll', -45.0, 45.0, 1.0).name('3D Roll');
+    display_folder.add(guiControls, 'threeDOrthoScale', 0.2, 2.0, 0.01).name('3D Ortho Scale');
+    display_folder.add(guiControls, 'threeDDepthOffset', -1.0, 1.0, 0.01).name('3D Depth Offset');
 
     display_folder.add(guiControls, 'showGraph').onChange(hideOrShowGraph).name('Show Sounding Graph').listen();
     display_folder.add(guiControls, 'showDrops').name('Show Droplets').listen();
