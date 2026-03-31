@@ -396,6 +396,7 @@ const guiControls_default = {
   supercellInflowTwist : 0.15,
   mesocycloneLift : 0.25,
   hailCoreBoost : 0.25,
+  // Severe weather indices defaults:
   spcRisk : 'SPC_ENHANCED',
   capeJkg : 2500.0,
   srh : 220.0,
