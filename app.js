@@ -376,6 +376,9 @@ const guiControls_default = {
   displayMode : 'DISP_REAL',
   wrapHorizontally : true,
   SmoothCam : true,
+  threeDView : true,
+  threeDStrength : 0.35,
+  threeDHeightOffset : 0.18,
   camSpeed : 0.01,
   exposure : 1.0,
   timeOfDay : 9.9,
@@ -409,6 +412,14 @@ const guiControls_default = {
 var horizontalDisplayMult = 3.0; // 3.0 to cover srceen while zoomed out
 
 var guiControls;
+
+function getDisplay3DUniformValues()
+{
+  const enabled = guiControls?.threeDView ? 1.0 : 0.0;
+  const strength = guiControls?.threeDStrength ?? 0.0;
+  const heightOffset = guiControls?.threeDHeightOffset ?? 0.0;
+  return [enabled, strength, heightOffset];
+}
 
 var displayVectorField = false;
 
@@ -3391,8 +3402,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   } else {
     setupDatGui(guiControlsFromSaveFile);                     // use settings from save file
 
-    for (const [key, value] of Object.entries(guiControls)) { // set numerical values that could not be loaded from the savefile to their defaults.
-      if (value === -1) {
+    for (const [key, value] of Object.entries(guiControls_default)) { // set values that could not be loaded from the savefile to their defaults.
+      if (guiControls[key] === undefined || guiControls[key] === -1) {
         guiControls[key] = guiControls_default[key];
       }
     }
@@ -3797,6 +3808,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       .name('Wrap Horizontally');
 
     display_folder.add(guiControls, 'SmoothCam').onChange(function() { cam.smooth = guiControls.SmoothCam; }).name('Smooth Camera');
+    display_folder.add(guiControls, 'threeDView').name('Enable 3D View');
+    display_folder.add(guiControls, 'threeDStrength', 0.0, 0.8, 0.01).name('3D Perspective');
+    display_folder.add(guiControls, 'threeDHeightOffset', -0.5, 0.5, 0.01).name('3D Height Offset');
 
     display_folder.add(guiControls, 'showGraph').onChange(hideOrShowGraph).name('Show Sounding Graph').listen();
     display_folder.add(guiControls, 'showDrops').name('Show Droplets').listen();
@@ -6180,6 +6194,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.useProgram(skyBackgroundDisplayProgram);
       gl.uniform2f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
       gl.uniform3f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
+      gl.uniform3f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'view3D'), ...getDisplay3DUniformValues());
       gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'Xmult'), horizontalDisplayMult);
       gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'iterNum'), iterNum);
 
@@ -6195,6 +6210,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.useProgram(realisticDisplayProgram);
       gl.uniform2f(gl.getUniformLocation(realisticDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
       gl.uniform3f(gl.getUniformLocation(realisticDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
+      gl.uniform3f(gl.getUniformLocation(realisticDisplayProgram, 'view3D'), ...getDisplay3DUniformValues());
       gl.uniform4f(gl.getUniformLocation(realisticDisplayProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
       gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'Xmult'), horizontalDisplayMult);
       gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'iterNum'), iterNum);
@@ -6320,6 +6336,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.useProgram(precipDisplayProgram);
         gl.uniform2f(gl.getUniformLocation(precipDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
         gl.uniform3f(gl.getUniformLocation(precipDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
+        gl.uniform3f(gl.getUniformLocation(precipDisplayProgram, 'view3D'), ...getDisplay3DUniformValues());
         gl.bindVertexArray(destVAO);
         gl.drawArrays(gl.POINTS, 0, NUM_DROPLETS);
         gl.bindVertexArray(fluidVao); // set screenfilling rect again
@@ -6335,6 +6352,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.useProgram(temperatureDisplayProgram);
         gl.uniform2f(gl.getUniformLocation(temperatureDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
         gl.uniform3f(gl.getUniformLocation(temperatureDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
+        gl.uniform3f(gl.getUniformLocation(temperatureDisplayProgram, 'view3D'), ...getDisplay3DUniformValues());
         gl.uniform4f(gl.getUniformLocation(temperatureDisplayProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
         gl.uniform1f(gl.getUniformLocation(temperatureDisplayProgram, 'Xmult'), horizontalDisplayMult);
 
@@ -6351,6 +6369,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.useProgram(airQualityDisplayProgram);
         gl.uniform2f(gl.getUniformLocation(airQualityDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
         gl.uniform3f(gl.getUniformLocation(airQualityDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
+        gl.uniform3f(gl.getUniformLocation(airQualityDisplayProgram, 'view3D'), ...getDisplay3DUniformValues());
         gl.uniform4f(gl.getUniformLocation(airQualityDisplayProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
         gl.uniform1f(gl.getUniformLocation(airQualityDisplayProgram, 'Xmult'), horizontalDisplayMult);
 
@@ -6358,6 +6377,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.useProgram(IRtempDisplayProgram);
         gl.uniform2f(gl.getUniformLocation(IRtempDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
         gl.uniform3f(gl.getUniformLocation(IRtempDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
+        gl.uniform3f(gl.getUniformLocation(IRtempDisplayProgram, 'view3D'), ...getDisplay3DUniformValues());
         gl.uniform4f(gl.getUniformLocation(IRtempDisplayProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
         gl.uniform1i(gl.getUniformLocation(IRtempDisplayProgram, 'upOrDown'), 0);
         gl.uniform1f(gl.getUniformLocation(IRtempDisplayProgram, 'Xmult'), horizontalDisplayMult);
@@ -6368,6 +6388,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.useProgram(IRtempDisplayProgram);
         gl.uniform2f(gl.getUniformLocation(IRtempDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
         gl.uniform3f(gl.getUniformLocation(IRtempDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
+        gl.uniform3f(gl.getUniformLocation(IRtempDisplayProgram, 'view3D'), ...getDisplay3DUniformValues());
         gl.uniform4f(gl.getUniformLocation(IRtempDisplayProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
         gl.uniform1i(gl.getUniformLocation(IRtempDisplayProgram, 'upOrDown'), 1);
         gl.uniform1f(gl.getUniformLocation(IRtempDisplayProgram, 'Xmult'), horizontalDisplayMult);
@@ -6378,6 +6399,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.useProgram(universalDisplayProgram);
         gl.uniform2f(gl.getUniformLocation(universalDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
         gl.uniform3f(gl.getUniformLocation(universalDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
+        gl.uniform3f(gl.getUniformLocation(universalDisplayProgram, 'view3D'), ...getDisplay3DUniformValues());
         gl.uniform4f(gl.getUniformLocation(universalDisplayProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
         gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'Xmult'), horizontalDisplayMult);
 
