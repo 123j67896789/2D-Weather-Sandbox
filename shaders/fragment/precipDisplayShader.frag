@@ -1,7 +1,7 @@
 #version 300 es
 precision highp float;
 
-in vec2 position_out;
+in vec3 position_out;
 in vec2 mass_out;
 in float density_out;
 
