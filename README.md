@@ -1,8 +1,8 @@
-# 2D Weather Sandbox
+# 2D Weather Sandbox (with volumetric 3D storm depth mode)
 
 Previously called "Weather_Sim_4"
 
-This projects aims to produce a semirealistic two-dimensional, realtime, interactive simulation of the weather in earth's troposphere.
+This projects aims to produce a semirealistic realtime interactive simulation of the weather in earth's troposphere. The fluid grid remains 2D for performance, while precipitation particles now evolve in a volumetric depth axis to emulate 3D storm structure and supercell behavior.
 
 
 ## Clouds and precipitation
