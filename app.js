@@ -3627,6 +3627,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         'Lake / Sea' : 'TOOL_WALL_SEA',
         'Urban' : 'TOOL_WALL_URBAN',
         'Suburban' : 'TOOL_SUBURBAN',
+        'Suburban Neighborhood' : 'TOOL_SUBURBAN',
         'Runway' : 'TOOL_WALL_RUNWAY',
         'Industrial' : 'TOOL_WALL_INDUSTRIAL',
         'Fire' : 'TOOL_WALL_FIRE',
