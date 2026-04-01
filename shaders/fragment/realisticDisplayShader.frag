@@ -460,20 +460,53 @@ void main()
 
         urbanTexCoordY = 1.0 - urbanTexCoordY;
 
-        vec4 texCol = surfaceTexture(URBAN, vec2(urbanTexCoordX, urbanTexCoordY));
-        if (texCol.a > 0.5) { // if not transparent
+        if (wallX0Ym[VEGETATION] == 74) {                             // suburban marker
+          float houseHeightCells = 8.0;
+          float houseWidthCells = 8.0;
+          float houseX = fract(fragCoord.x / houseWidthCells);
+          float houseY = clamp(heightAboveGround / houseHeightCells, 0.0, 1.0);
+          houseY = 1.0 - houseY;                                      // 0 bottom, 1 top
 
-          if (nightTime) {
-            shadowLight = 1.0;                 // city lights
-            texCol.rgb *= vec3(1.0, 0.8, 0.5); // yellowish windows
-          } else {                             // day time
-            texCol.rgb *= vec3(0.8, 0.9, 1.0); // Blueish windows
+          vec3 roofCol = vec3(0.56, 0.38, 0.08);
+          vec3 woodCol = vec3(0.72, 0.50, 0.14);
+          vec3 frameCol = vec3(0.83, 0.64, 0.24);
+          vec3 doorCol = vec3(0.60, 0.41, 0.13);
+          vec3 windowCol = vec3(0.78, 0.88, 1.00);
 
-            if (length(texCol.rgb) < 0.1)
-              texCol.rgb = texture(noiseTex, fragCoord * 0.3).rgb * 0.3;
+          bool roof = houseY > 0.55 && abs(houseX - 0.5) < (1.0 - houseY) * 1.8;
+          bool body = houseY > 0.12 && houseY <= 0.55 && houseX > 0.12 && houseX < 0.88;
+          bool door = body && houseY > 0.12 && houseY < 0.38 && houseX > 0.43 && houseX < 0.62;
+          bool window = body && houseY > 0.22 && houseY < 0.38 && houseX > 0.23 && houseX < 0.38;
+          bool framing = body && (abs(houseX - 0.16) < 0.02 || abs(houseX - 0.50) < 0.02 || abs(houseX - 0.84) < 0.02);
+
+          if (roof || body) {
+            vec3 texRgb = roof ? roofCol : woodCol;
+            if (framing)
+              texRgb = frameCol;
+            if (door)
+              texRgb = doorCol;
+            if (window)
+              texRgb = nightTime ? vec3(1.0, 0.84, 0.55) : windowCol;
+
+            color = texRgb;
+            opacity = 1.0;
           }
-          color = texCol.rgb;
-          opacity = texCol.a;
+        } else {
+          vec4 texCol = surfaceTexture(URBAN, vec2(urbanTexCoordX, urbanTexCoordY));
+          if (texCol.a > 0.5) { // if not transparent
+
+            if (nightTime) {
+              shadowLight = 1.0;                 // city lights
+              texCol.rgb *= vec3(1.0, 0.8, 0.5); // yellowish windows
+            } else {                             // day time
+              texCol.rgb *= vec3(0.8, 0.9, 1.0); // Blueish windows
+
+              if (length(texCol.rgb) < 0.1)
+                texCol.rgb = texture(noiseTex, fragCoord * 0.3).rgb * 0.3;
+            }
+            color = texCol.rgb;
+            opacity = texCol.a;
+          }
         }
       } else if (wallX0Ym[TYPE] == WALLTYPE_INDUSTRIAL) {
 
