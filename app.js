@@ -3626,6 +3626,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         'Land' : 'TOOL_WALL_LAND',
         'Lake / Sea' : 'TOOL_WALL_SEA',
         'Urban' : 'TOOL_WALL_URBAN',
+        'Suburban' : 'TOOL_SUBURBAN',
         'Runway' : 'TOOL_WALL_RUNWAY',
         'Industrial' : 'TOOL_WALL_INDUSTRIAL',
         'Fire' : 'TOOL_WALL_FIRE',
@@ -4772,6 +4773,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       guiControls.tool = 'TOOL_WIND';
     } else if (event.code == 'BracketLeft') {
       guiControls.tool = 'TOOL_WALL_URBAN';
+    } else if (event.code == 'Semicolon') {
+      guiControls.tool = 'TOOL_SUBURBAN';
     } else if (event.code == 'BracketRight') {
       guiControls.tool = 'TOOL_WALL_RUNWAY';
     } else if (event.code == 'Backslash') {
@@ -5948,6 +5951,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           inputType = 13;
         else if (guiControls.tool == 'TOOL_WALL_URBAN')
           inputType = 14;
+        else if (guiControls.tool == 'TOOL_SUBURBAN')
+          inputType = 17;
         else if (guiControls.tool == 'TOOL_WALL_RUNWAY')
           inputType = 15;
         else if (guiControls.tool == 'TOOL_WALL_INDUSTRIAL')
