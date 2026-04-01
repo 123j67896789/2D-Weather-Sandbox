@@ -399,6 +399,14 @@ void main()
       case WALLTYPE_INDUSTRIAL:
         wall[VEGETATION] = min(wall[VEGETATION], 15); // limit vegetation in industrial areas
       case WALLTYPE_URBAN:
+        if (wall[TYPE] == WALLTYPE_URBAN && wall[VEGETATION] == 74) { // suburban house lots
+          const float suburbanDamageWindThresholdRaw = 0.26;           // ~80 mph at default timestep/cell size
+          float surfaceWindRaw = length(texture(baseTex, texCoordX0Yp).xy);
+          if (surfaceWindRaw >= suburbanDamageWindThresholdRaw) {
+            wall[TYPE] = WALLTYPE_LAND;                                // homes destroyed by extreme wind
+            wall[VEGETATION] = max(wall[VEGETATION], 25);
+          }
+        }
         wall[VEGETATION] = min(wall[VEGETATION], 75); // limit vegetation in urban areas
       case WALLTYPE_FIRE:
         if (wall[TYPE] == WALLTYPE_FIRE) {            // extra check to make sure it's not urban

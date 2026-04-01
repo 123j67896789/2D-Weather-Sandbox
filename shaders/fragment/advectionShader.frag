@@ -331,6 +331,21 @@ void main()
             wall[TYPE] = WALLTYPE_INDUSTRIAL;
           }
           break;
+        case 17: {                                              // suburban neighborhood (houses + roads pattern)
+          if (wall[DISTANCE] == 0 && (wall[TYPE] == WALLTYPE_LAND || wall[TYPE] == WALLTYPE_URBAN || wall[TYPE] == WALLTYPE_RUNWAY || wall[TYPE] == WALLTYPE_INDUSTRIAL) &&
+              texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if surface and no wall above
+            int stripeX = int(mod(fragCoord.x, 14.0));
+            bool isRoad = (stripeX <= 2 || stripeX == 8);
+            if (isRoad) {
+              wall[TYPE] = WALLTYPE_LAND;
+              wall[VEGETATION] = max(wall[VEGETATION], 20);
+            } else {
+              wall[TYPE] = WALLTYPE_URBAN;
+              wall[VEGETATION] = 74; // marker for suburban homes that can be wind-damaged
+            }
+          }
+          break;
+        }
 
         case 20:                                                                                                      // add soil moisture
           if (wall[DISTANCE] == 0 && wall[TYPE] != WALLTYPE_WATER && texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
@@ -377,6 +392,9 @@ void main()
               wall[TYPE] = WALLTYPE_LAND;
           } else if (userInputType == 16) {
             if (wall[TYPE] == WALLTYPE_INDUSTRIAL) // remove industry
+              wall[TYPE] = WALLTYPE_LAND;
+          } else if (userInputType == 17) {
+            if (wall[TYPE] == WALLTYPE_URBAN && wall[VEGETATION] == 74) // remove suburban houses
               wall[TYPE] = WALLTYPE_LAND;
           } else if (userInputType == 20) {        // remove moisture
             water[SOIL_MOISTURE] += userInputValues[BRUSH_INTENSITY] * 10.0;
