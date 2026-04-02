@@ -601,8 +601,7 @@ function updateDustDevils(iterationsThisFrame)
   }
 }
 
-function uploadDustDevilsUniforms(program)
-function uploadDustDevilsUniforms()
+function uploadDustDevilsUniforms(program = advectionProgram)
 {
   const packedCore = new Float32Array(MAX_DUST_DEVILS * 4);
   const packedState = new Float32Array(MAX_DUST_DEVILS * 4);
@@ -625,9 +624,6 @@ function uploadDustDevilsUniforms()
   gl.uniform1i(gl.getUniformLocation(program, 'dustDevilCount'), activeCount);
   gl.uniform4fv(gl.getUniformLocation(program, 'dustDevils'), packedCore);
   gl.uniform4fv(gl.getUniformLocation(program, 'dustDevilState'), packedState);
-  gl.uniform1i(gl.getUniformLocation(advectionProgram, 'dustDevilCount'), activeCount);
-  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'dustDevils'), packedCore);
-  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'dustDevilState'), packedState);
 }
 
 function screenToSimX(screenX)
