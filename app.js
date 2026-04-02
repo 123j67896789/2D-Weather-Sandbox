@@ -485,6 +485,7 @@ var iterNum = 0;
 // global framebuffers for measurements
 var frameBuff_0;
 var lightFrameBuff_0;
+var advectionProgram;
 
 var dryLapse;
 
@@ -495,6 +496,10 @@ var NUM_DROPLETS;
 const NUM_DROPLETS_DEVIDER = 25; // 25
 const LEGACY_VALS_PER_DROPLET = 5;
 const VALS_PER_DROPLET = 6;
+const MAX_DUST_DEVILS = 8;
+const DUST_DEVIL_MAX_LIFETIME_SECONDS = 30.0;
+
+let dustDevils = [];
 
 let hdrFBO;
 
@@ -505,6 +510,81 @@ let emittedLightFBO;
 
 
 function clamp(num, min, max) { return Math.min(Math.max(num, min), max); }
+
+function getDustDevilEnergyBudget()
+{
+  const daytimeFactor = sunIsUp ? clamp(guiControls.sunIntensity, 0.0, 1.5) : 0.0;
+  const surfaceHeatFactor = clamp((guiControls.waterTemperature - 24.0) / 18.0, 0.0, 1.0);
+  const windPenalty = clamp(Math.abs(guiControls.wind) * 4.5, 0.0, 0.55);
+  return clamp(daytimeFactor * (0.65 + surfaceHeatFactor * 0.45) - windPenalty, 0.0, 1.5);
+}
+
+function spawnDustDevil()
+{
+  const radiusCells = 2.0 + Math.random() * 3.0;
+  const maxHeightCells = 16.0 + Math.random() * 20.0;
+
+  dustDevils.push({
+    x : Math.random(),
+    y : (2.0 + Math.random() * 3.0) / sim_res_y,
+    radius : radiusCells / sim_res_y,
+    strength : 0.8 + Math.random() * 0.8,
+    height : maxHeightCells / sim_res_y,
+    energy : 0.65 + Math.random() * 0.35,
+    ageSeconds : 0.0,
+  });
+}
+
+function updateDustDevils(iterationsThisFrame)
+{
+  const dt = timePerIteration * 3600.0;
+  const energyBudget = getDustDevilEnergyBudget();
+
+  for (let i = dustDevils.length - 1; i >= 0; i--) {
+    const devil = dustDevils[i];
+    devil.ageSeconds += dt;
+
+    const energyGain = Math.max(energyBudget - 0.42, 0.0) * 0.012;
+    const energyLoss = 0.010 + Math.max(0.35 - energyBudget, 0.0) * 0.020;
+    devil.energy = clamp(devil.energy + energyGain - energyLoss, 0.0, 1.2);
+
+    if (devil.energy <= 0.03 || devil.ageSeconds >= DUST_DEVIL_MAX_LIFETIME_SECONDS) {
+      dustDevils.splice(i, 1);
+    }
+  }
+
+  if (dustDevils.length < MAX_DUST_DEVILS) {
+    const spawnChance = 0.0016 * energyBudget * iterationsThisFrame;
+    if (Math.random() < spawnChance) {
+      spawnDustDevil();
+    }
+  }
+}
+
+function uploadDustDevilsUniforms()
+{
+  const packedCore = new Float32Array(MAX_DUST_DEVILS * 4);
+  const packedState = new Float32Array(MAX_DUST_DEVILS * 4);
+  const activeCount = Math.min(dustDevils.length, MAX_DUST_DEVILS);
+
+  for (let i = 0; i < activeCount; i++) {
+    const devil = dustDevils[i];
+    const baseIndex = i * 4;
+    packedCore[baseIndex + 0] = devil.x;
+    packedCore[baseIndex + 1] = devil.y;
+    packedCore[baseIndex + 2] = devil.radius;
+    packedCore[baseIndex + 3] = devil.strength;
+
+    packedState[baseIndex + 0] = devil.height;
+    packedState[baseIndex + 1] = devil.energy;
+    packedState[baseIndex + 2] = clamp(devil.ageSeconds / DUST_DEVIL_MAX_LIFETIME_SECONDS, 0.0, 1.0);
+    packedState[baseIndex + 3] = 1.0;
+  }
+
+  gl.uniform1i(gl.getUniformLocation(advectionProgram, 'dustDevilCount'), activeCount);
+  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'dustDevils'), packedCore);
+  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'dustDevilState'), packedState);
+}
 
 function screenToSimX(screenX)
 {
@@ -4913,7 +4993,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   // create programs
   const pressureProgram = createProgram(simVertexShader, pressureShader);
   const velocityProgram = createProgram(simVertexShader, velocityShader);
-  const advectionProgram = createProgram(simVertexShader, advectionShader);
+  advectionProgram = createProgram(simVertexShader, advectionShader);
   const curlProgram = createProgram(simVertexShader, curlShader);
   const vorticityProgram = createProgram(simVertexShader, vorticityShader);
   const boundaryProgram = createProgram(simVertexShader, boundaryShader);
@@ -5679,6 +5759,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1f(gl.getUniformLocation(advectionProgram, 'dryLapse'), dryLapse);
   gl.uniform1f(gl.getUniformLocation(advectionProgram, 'waterTemperature'),
                CtoK(guiControls.waterTemperature)); // can be changed by GUI input
+  gl.uniform1i(gl.getUniformLocation(advectionProgram, 'dustDevilCount'), 0);
+  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'dustDevils'), new Float32Array(MAX_DUST_DEVILS * 4));
+  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'dustDevilState'), new Float32Array(MAX_DUST_DEVILS * 4));
 
   gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'realWorldSounding_Tv'), realWorldSounding_T);
   gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'realWorldSounding_Wv'), realWorldSounding_W);
@@ -6012,6 +6095,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           let numIterations = guiControls.IterPerFrame;
           if (airplaneMode)
             numIterations = 1;
+          updateDustDevils(numIterations);
           for (var i = 0; i < numIterations; i++) { // Simulation loop
             // calc and apply velocity
             gl.useProgram(velocityProgram);
@@ -6064,6 +6148,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
             // calc and apply advection
             gl.useProgram(advectionProgram);
+            uploadDustDevilsUniforms();
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, baseTexture_0);
             gl.activeTexture(gl.TEXTURE1);
