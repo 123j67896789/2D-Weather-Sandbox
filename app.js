@@ -486,6 +486,7 @@ var iterNum = 0;
 var frameBuff_0;
 var lightFrameBuff_0;
 var advectionProgram;
+var precipitationProgram;
 
 var dryLapse;
 
@@ -582,6 +583,7 @@ function updateDustDevils(iterationsThisFrame)
   }
 }
 
+function uploadDustDevilsUniforms(program)
 function uploadDustDevilsUniforms()
 {
   const packedCore = new Float32Array(MAX_DUST_DEVILS * 4);
@@ -602,6 +604,9 @@ function uploadDustDevilsUniforms()
     packedState[baseIndex + 3] = 1.0;
   }
 
+  gl.uniform1i(gl.getUniformLocation(program, 'dustDevilCount'), activeCount);
+  gl.uniform4fv(gl.getUniformLocation(program, 'dustDevils'), packedCore);
+  gl.uniform4fv(gl.getUniformLocation(program, 'dustDevilState'), packedState);
   gl.uniform1i(gl.getUniformLocation(advectionProgram, 'dustDevilCount'), activeCount);
   gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'dustDevils'), packedCore);
   gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'dustDevilState'), packedState);
@@ -5170,7 +5175,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   const precipitationVertexShader = await loadShader('precipitationShader.vert');
   const precipitationShader = await loadShader('precipitationShader.frag');
-  const precipitationProgram = createProgram(precipitationVertexShader, precipitationShader, [ 'position_out', 'mass_out', 'density_out' ]);
+  precipitationProgram = createProgram(precipitationVertexShader, precipitationShader, [ 'position_out', 'mass_out', 'density_out' ]);
 
   gl.useProgram(precipitationProgram);
 
@@ -5913,6 +5918,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform2f(gl.getUniformLocation(precipitationProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform2f(gl.getUniformLocation(precipitationProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'dryLapse'), dryLapse);
+  gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'simDeltaSeconds'), timePerIteration * 3600.0);
+  gl.uniform1i(gl.getUniformLocation(precipitationProgram, 'dustDevilCount'), 0);
+  gl.uniform4fv(gl.getUniformLocation(precipitationProgram, 'dustDevils'), new Float32Array(MAX_DUST_DEVILS * 4));
+  gl.uniform4fv(gl.getUniformLocation(precipitationProgram, 'dustDevilState'), new Float32Array(MAX_DUST_DEVILS * 4));
   gl.useProgram(IRtempDisplayProgram);
   gl.uniform2f(gl.getUniformLocation(IRtempDisplayProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform2f(gl.getUniformLocation(IRtempDisplayProgram, 'texelSize'), texelSizeX, texelSizeY);
@@ -6055,6 +6064,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           inputType = 2;
         else if (guiControls.tool == 'TOOL_SMOKE')
           inputType = 3;
+        else if (guiControls.tool == 'TOOL_DUST_DEVIL')
+          inputType = 3; // reuse original smoke/dust injection system
         else if (guiControls.tool == 'TOOL_WIND')
           inputType = 4;
         else if (guiControls.tool == 'TOOL_WALL')
@@ -6083,6 +6094,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           inputType = 22;
 
         var intensity = guiControls.intensity;
+
+        if (guiControls.tool == 'TOOL_DUST_DEVIL') {
+          intensity *= 1.8; // seed a visible dust column via the original dust system
+        }
 
         if (ctrlPressed) {
           intensity *= -1;
@@ -6238,6 +6253,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             if (guiControls.enablePrecipitation) { // move precipitation, HUGE PERFORMANCE BOTTLENECK!
 
               gl.useProgram(precipitationProgram);
+              uploadDustDevilsUniforms(precipitationProgram);
               gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'iterNum'), iterNum);
               gl.enable(gl.BLEND);
               gl.blendFunc(gl.ONE, gl.ONE); // add everything together

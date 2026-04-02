@@ -59,16 +59,31 @@ uniform float stp;
 uniform float vtp;
 uniform float dewPointC;
 uniform float helicity;
+uniform float simDeltaSeconds;
+uniform int dustDevilCount;
+uniform vec4 dustDevils[8];     // x, y, radius, strength
+uniform vec4 dustDevilState[8]; // height, energy, age01, active
 
 #include "common.glsl"
 
 vec3 newPos;
 vec2 newMass;
 float newDensity;
+bool isDust = false;
 
 bool isActive = true;
 bool spawned = false; // spawned in this iteration
 bool lightningSpawned = false;
+
+float signedHorizontalDelta(float fromX, float toX)
+{
+  float dx = toX - fromX;
+  if (dx > 0.5)
+    dx -= 1.0;
+  else if (dx < -0.5)
+    dx += 1.0;
+  return dx;
+}
 
 void disableDroplet()
 {
@@ -86,6 +101,47 @@ void main()
   newDensity = density;   // determines fall speed
 
   if (mass[WATER] < 0.) { // inactive
+    for (int devilIndex = 0; devilIndex < 8; devilIndex++) {
+      if (devilIndex >= dustDevilCount) {
+        break;
+      }
+
+      vec4 devil = dustDevils[devilIndex];
+      vec4 devilState = dustDevilState[devilIndex];
+      if (devilState.w < 0.5 || devilState.y < 0.08) {
+        continue;
+      }
+
+      float angle = random2d(vec2(mass[WATER] + float(devilIndex) * 0.18, iterNum * 0.051 + dropPosition.x)) * 6.28318;
+      float radial = sqrt(random2d(vec2(mass[ICE] + float(devilIndex) * 0.41, iterNum * 0.037 + dropPosition.y))) * devil.z;
+      float height = random2d(vec2(dropPosition.x + float(devilIndex) * 0.77, iterNum * 0.023 + mass[ICE])) * devilState.x;
+      float aspect = texelSize.x / max(texelSize.y, 0.000001);
+      vec2 spawnTc = vec2(devil.x + cos(angle) * radial * aspect, devil.y + height);
+      spawnTc.x = mod(spawnTc.x + 1.0, 1.0);
+      spawnTc.y = clamp(spawnTc.y, 0.0, 1.0);
+
+      float dustSpawnChance = devilState.y * devil.w * 0.12;
+      float dustRand = random2d(vec2(spawnTc.x + iterNum * 0.011, spawnTc.y + float(devilIndex) * 0.17));
+      if (dustSpawnChance > dustRand) {
+        spawned = true;
+        isDust = true;
+        newPos = vec3((spawnTc.x - 0.5) * 2., (spawnTc.y - 0.5) * 2., 0.0);
+        newMass[WATER] = 0.04 + devilState.y * 0.06;
+        newMass[ICE] = 30.0; // lifetime (seconds)
+        newDensity = 2.0;    // marker for dust particles
+        break;
+      }
+    }
+
+    if (spawned && isDust) {
+      gl_PointSize = 1.0;
+      gl_Position = vec4(newPos.xy, 0.0, 1.0);
+      position_out = newPos;
+      mass_out = newMass;
+      density_out = newDensity;
+      return;
+    }
+
     texCoord = vec2(random2d(vec2(mass[WATER], dropPosition.x + iterNum * 0.3754)), random2d(vec2(mass[ICE], dropPosition.x + iterNum * 0.073162)));
 
     // sample fluid at generated position
@@ -168,6 +224,59 @@ void main()
       water = texture(waterTex, texCoord);
       base = texture(baseTex, texCoord);
       realTemp = potentialToRealT(base[TEMPERATURE]); // in Kelvin
+    }
+
+    if (newDensity > 1.5) { // dust particle path
+      vec2 dustTc = vec2(newPos.x / 2. + 0.5, newPos.y / 2. + 0.5);
+      vec2 dustVel = vec2(0.0);
+      float updraft = 0.0;
+      float supportEnergy = 0.0;
+
+      for (int devilIndex = 0; devilIndex < 8; devilIndex++) {
+        if (devilIndex >= dustDevilCount) {
+          break;
+        }
+
+        vec4 devil = dustDevils[devilIndex];
+        vec4 devilState = dustDevilState[devilIndex];
+        if (devilState.w < 0.5) {
+          continue;
+        }
+
+        vec2 delta = vec2(signedHorizontalDelta(devil.x, dustTc.x), dustTc.y - devil.y);
+        delta.x *= texelSize.y / max(texelSize.x, 0.000001);
+        float radialCore = smoothstep(devil.z, 0.0, length(delta));
+        float top = devil.y + max(devilState.x, texelSize.y * 4.0);
+        float towerShape = smoothstep(devil.y, devil.y + texelSize.y * 0.7, dustTc.y) * (1.0 - smoothstep(top * 0.75, top, dustTc.y));
+        float influence = radialCore * towerShape * devilState.y * devil.w;
+        if (influence <= 0.0) {
+          continue;
+        }
+
+        vec2 tangent = normalize(vec2(-delta.y, delta.x) + vec2(1e-6, 0.0));
+        dustVel += tangent * influence * 0.010;
+        updraft += influence * 0.0035;
+        supportEnergy = max(supportEnergy, influence);
+      }
+
+      newPos.xy += base.xy / resolution * 2.0;
+      newPos.xy += dustVel;
+      newPos.y += updraft;
+      newPos.x = mod(newPos.x + 1.0, 2.0) - 1.0;
+
+      newMass[ICE] -= simDeltaSeconds;
+      newMass[WATER] *= 1.0 - (0.010 + max(0.12 - supportEnergy, 0.0) * 0.04);
+
+      if (newMass[ICE] <= 0.0 || newMass[WATER] < 0.003 || supportEnergy <= 0.001 || newPos.y > 1.0) {
+        disableDroplet();
+      }
+
+      gl_PointSize = 7.0;
+      gl_Position = vec4(newPos.xy, 0.0, 1.0);
+      position_out = newPos;
+      mass_out = newMass;
+      density_out = max(newDensity, 0.);
+      return;
     }
 
     float totalMass = newMass[WATER] + newMass[ICE];

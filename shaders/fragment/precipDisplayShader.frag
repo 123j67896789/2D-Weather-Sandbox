@@ -17,6 +17,12 @@ void main()
   if (mass_out[WATER] < 0.)
     discard;
 
+  if (density_out > 1.5) { // dust particle
+    float dustOpacity = clamp(mass_out[WATER] * 2.8, 0.0, 0.75);
+    fragmentColor = vec4(0.72, 0.56, 0.34, dustOpacity);
+    return;
+  }
+
   /* // dots:
   if(mass_out[1] > 0.){
       if(density_out < 1.0)
