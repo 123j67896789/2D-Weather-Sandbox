@@ -584,6 +584,7 @@ function updateDustDevils(iterationsThisFrame)
 }
 
 function uploadDustDevilsUniforms(program)
+function uploadDustDevilsUniforms()
 {
   const packedCore = new Float32Array(MAX_DUST_DEVILS * 4);
   const packedState = new Float32Array(MAX_DUST_DEVILS * 4);
@@ -606,6 +607,9 @@ function uploadDustDevilsUniforms(program)
   gl.uniform1i(gl.getUniformLocation(program, 'dustDevilCount'), activeCount);
   gl.uniform4fv(gl.getUniformLocation(program, 'dustDevils'), packedCore);
   gl.uniform4fv(gl.getUniformLocation(program, 'dustDevilState'), packedState);
+  gl.uniform1i(gl.getUniformLocation(advectionProgram, 'dustDevilCount'), activeCount);
+  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'dustDevils'), packedCore);
+  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'dustDevilState'), packedState);
 }
 
 function screenToSimX(screenX)
@@ -5792,6 +5796,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1f(gl.getUniformLocation(advectionProgram, 'dryLapse'), dryLapse);
   gl.uniform1f(gl.getUniformLocation(advectionProgram, 'waterTemperature'),
                CtoK(guiControls.waterTemperature)); // can be changed by GUI input
+  gl.uniform1i(gl.getUniformLocation(advectionProgram, 'dustDevilCount'), 0);
+  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'dustDevils'), new Float32Array(MAX_DUST_DEVILS * 4));
+  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'dustDevilState'), new Float32Array(MAX_DUST_DEVILS * 4));
+
   gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'realWorldSounding_Tv'), realWorldSounding_T);
   gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'realWorldSounding_Wv'), realWorldSounding_W);
   gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'realWorldSounding_Velv'), realWorldSounding_Vel);
@@ -6187,6 +6195,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
             // calc and apply advection
             gl.useProgram(advectionProgram);
+            uploadDustDevilsUniforms();
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, baseTexture_0);
             gl.activeTexture(gl.TEXTURE1);
