@@ -535,6 +535,27 @@ function spawnDustDevil()
   });
 }
 
+function spawnDustDevilAt(simXNorm, simYNorm)
+{
+  const radiusCells = 2.0 + Math.random() * 3.0;
+  const maxHeightCells = 16.0 + Math.random() * 20.0;
+  const intensityScale = clamp(guiControls.intensity / 0.01, 0.6, 2.0);
+
+  if (dustDevils.length >= MAX_DUST_DEVILS) {
+    dustDevils.shift(); // remove oldest so manual spawn always works
+  }
+
+  dustDevils.push({
+    x : clamp(simXNorm, 0.0, 1.0),
+    y : clamp(simYNorm, 0.0, 1.0),
+    radius : radiusCells / sim_res_y,
+    strength : (0.8 + Math.random() * 0.8) * intensityScale,
+    height : maxHeightCells / sim_res_y,
+    energy : clamp(0.75 + intensityScale * 0.2, 0.55, 1.2),
+    ageSeconds : 0.0,
+  });
+}
+
 function updateDustDevils(iterationsThisFrame)
 {
   const dt = timePerIteration * 3600.0;
@@ -3712,6 +3733,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         'Industrial' : 'TOOL_WALL_INDUSTRIAL',
         'Fire' : 'TOOL_WALL_FIRE',
         'Smoke / Dust' : 'TOOL_SMOKE',
+        'Dust Devil' : 'TOOL_DUST_DEVIL',
         'Soil Moisture' : 'TOOL_WALL_MOIST',
         'Vegetation' : 'TOOL_VEGETATION',
         'Snow' : 'TOOL_WALL_SNOW',
@@ -4639,6 +4661,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
         if (simXpos >= 0 && simXpos < sim_res_x)
           weatherStations.push(new Weatherstation(simXpos, simYpos)); // add weather station
+      } else if (guiControls.tool == 'TOOL_DUST_DEVIL') {
+        let simXpos = clamp(mouseXinSim, 0.0, 1.0);
+        let simYpos = findSimYposAboveSurfaceAtMouseX();
+
+        if (simYpos != undefined) {
+          let spawnY = (simYpos + 0.5) / sim_res_y;
+          spawnDustDevilAt(simXpos, spawnY);
+        }
       }
     } else if (e.button == 1) {
       // middle mouse button
@@ -4860,6 +4890,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       guiControls.tool = 'TOOL_WALL_RUNWAY';
     } else if (event.code == 'Backslash') {
       guiControls.tool = 'TOOL_WALL_INDUSTRIAL';
+    } else if (event.code == 'Quote') {
+      guiControls.tool = 'TOOL_DUST_DEVIL';
     } else if (event.code == 'KeyN') {
       if (displayWeatherStations) {
         displayWeatherStations = false;
