@@ -486,6 +486,7 @@ var iterNum = 0;
 var frameBuff_0;
 var lightFrameBuff_0;
 var advectionProgram;
+var precipitationProgram;
 
 var dryLapse;
 
@@ -582,7 +583,7 @@ function updateDustDevils(iterationsThisFrame)
   }
 }
 
-function uploadDustDevilsUniforms()
+function uploadDustDevilsUniforms(program)
 {
   const packedCore = new Float32Array(MAX_DUST_DEVILS * 4);
   const packedState = new Float32Array(MAX_DUST_DEVILS * 4);
@@ -602,9 +603,9 @@ function uploadDustDevilsUniforms()
     packedState[baseIndex + 3] = 1.0;
   }
 
-  gl.uniform1i(gl.getUniformLocation(advectionProgram, 'dustDevilCount'), activeCount);
-  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'dustDevils'), packedCore);
-  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'dustDevilState'), packedState);
+  gl.uniform1i(gl.getUniformLocation(program, 'dustDevilCount'), activeCount);
+  gl.uniform4fv(gl.getUniformLocation(program, 'dustDevils'), packedCore);
+  gl.uniform4fv(gl.getUniformLocation(program, 'dustDevilState'), packedState);
 }
 
 function screenToSimX(screenX)
@@ -5170,7 +5171,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   const precipitationVertexShader = await loadShader('precipitationShader.vert');
   const precipitationShader = await loadShader('precipitationShader.frag');
-  const precipitationProgram = createProgram(precipitationVertexShader, precipitationShader, [ 'position_out', 'mass_out', 'density_out' ]);
+  precipitationProgram = createProgram(precipitationVertexShader, precipitationShader, [ 'position_out', 'mass_out', 'density_out' ]);
 
   gl.useProgram(precipitationProgram);
 
@@ -5791,10 +5792,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1f(gl.getUniformLocation(advectionProgram, 'dryLapse'), dryLapse);
   gl.uniform1f(gl.getUniformLocation(advectionProgram, 'waterTemperature'),
                CtoK(guiControls.waterTemperature)); // can be changed by GUI input
-  gl.uniform1i(gl.getUniformLocation(advectionProgram, 'dustDevilCount'), 0);
-  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'dustDevils'), new Float32Array(MAX_DUST_DEVILS * 4));
-  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'dustDevilState'), new Float32Array(MAX_DUST_DEVILS * 4));
-
   gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'realWorldSounding_Tv'), realWorldSounding_T);
   gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'realWorldSounding_Wv'), realWorldSounding_W);
   gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'realWorldSounding_Velv'), realWorldSounding_Vel);
@@ -5913,6 +5910,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform2f(gl.getUniformLocation(precipitationProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform2f(gl.getUniformLocation(precipitationProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'dryLapse'), dryLapse);
+  gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'simDeltaSeconds'), timePerIteration * 3600.0);
+  gl.uniform1i(gl.getUniformLocation(precipitationProgram, 'dustDevilCount'), 0);
+  gl.uniform4fv(gl.getUniformLocation(precipitationProgram, 'dustDevils'), new Float32Array(MAX_DUST_DEVILS * 4));
+  gl.uniform4fv(gl.getUniformLocation(precipitationProgram, 'dustDevilState'), new Float32Array(MAX_DUST_DEVILS * 4));
   gl.useProgram(IRtempDisplayProgram);
   gl.uniform2f(gl.getUniformLocation(IRtempDisplayProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform2f(gl.getUniformLocation(IRtempDisplayProgram, 'texelSize'), texelSizeX, texelSizeY);
@@ -6186,7 +6187,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
             // calc and apply advection
             gl.useProgram(advectionProgram);
-            uploadDustDevilsUniforms();
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, baseTexture_0);
             gl.activeTexture(gl.TEXTURE1);
@@ -6244,6 +6244,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             if (guiControls.enablePrecipitation) { // move precipitation, HUGE PERFORMANCE BOTTLENECK!
 
               gl.useProgram(precipitationProgram);
+              uploadDustDevilsUniforms(precipitationProgram);
               gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'iterNum'), iterNum);
               gl.enable(gl.BLEND);
               gl.blendFunc(gl.ONE, gl.ONE); // add everything together

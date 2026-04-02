@@ -29,9 +29,6 @@ uniform int userInputType;   // 0 = nothing 	1 = temp ...
 uniform vec4 airplaneValues; // xpos   Ypos   throttle   fire
 
 uniform bool wrapHorizontally;
-uniform int dustDevilCount;
-uniform vec4 dustDevils[8];     // x, y, radius, spin strength
-uniform vec4 dustDevilState[8]; // maxHeight, energy, age01, active
 
 uniform float dryLapse;
 uniform float evapHeat;
@@ -64,18 +61,6 @@ float getRealWorldSounding_W(int y) { return (realWorldSounding_Wv[y / 4][y % 4]
 float getRealWorldSounding_Vel(int y) { return (realWorldSounding_Velv[y / 4][y % 4] + realWorldSounding_Velv[(y - 1) / 4][(y - 1) % 4]) / 2.; }
 
 #include "common.glsl"
-
-float signedHorizontalDelta(float fromX, float toX)
-{
-  float dx = toX - fromX;
-  if (wrapHorizontally) {
-    if (dx > 0.5)
-      dx -= 1.0;
-    else if (dx < -0.5)
-      dx += 1.0;
-  }
-  return dx;
-}
 
 void main()
 {
@@ -429,36 +414,6 @@ void main()
             water[SMOKE] = 0.0;
           }
         }
-      }
-    }
-  }
-
-  if (wall[DISTANCE] != 0 && dustDevilCount > 0) {
-    for (int i = 0; i < 8; i++) {
-      if (i >= dustDevilCount) {
-        break;
-      }
-
-      vec4 devil = dustDevils[i];
-      vec4 state = dustDevilState[i];
-      if (state.w < 0.5) {
-        continue;
-      }
-
-      vec2 delta = vec2(signedHorizontalDelta(devil.x, texCoord.x), texCoord.y - devil.y);
-      delta.x *= texelSize.y / texelSize.x; // circular footprint
-      float dist = length(delta);
-      float radialCore = smoothstep(devil.z, 0.0, dist);
-
-      float top = devil.y + max(state.x, texelSize.y * 4.0);
-      float towerShape = smoothstep(devil.y, devil.y + texelSize.y * 0.8, texCoord.y) * (1.0 - smoothstep(top * 0.75, top, texCoord.y));
-      float lifeFade = max(1.0 - state.z, 0.0);
-      float towerIntensity = radialCore * towerShape * state.y * lifeFade;
-
-      if (towerIntensity > 0.0) {
-        vec2 tangent = normalize(vec2(-delta.y, delta.x) + vec2(1e-6, 0.0));
-        base.xy += tangent * towerIntensity * devil.w * 0.028;
-        base.y += towerIntensity * (0.003 + devil.w * 0.0015);
       }
     }
   }
