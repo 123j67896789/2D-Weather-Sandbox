@@ -195,7 +195,11 @@ const presets = [
   {name : 'High low level cape over mediterranean in fall', location : 'Ajaccio', date : '2025-10-23', hour : 12},
   {name : 'Classic Oklahoma supercell setup', location : 'Norman (OK)', date : '2013-05-31', hour : 12},
   {name : 'Central Oklahoma severe outbreak profile', location : 'Oklahoma City (OK)', date : '1999-05-03', hour : 0},
-  {name : 'Eastern Oklahoma tornado season sounding', location : 'Tulsa (OK)', date : '2019-05-20', hour : 0}
+  {name : 'Eastern Oklahoma tornado season sounding', location : 'Tulsa (OK)', date : '2019-05-20', hour : 0},
+  {name : 'Occluding cold front over the North Sea', location : 'North Sea', date : '2020-11-02', hour : 12},
+  {name : 'Stationary front near Paris', location : 'Paris', date : '2017-04-28', hour : 0},
+  {name : 'Warm front lifting over Warsaw', location : 'Warsaw', date : '2018-02-20', hour : 12},
+  {name : 'Dryline near Norman, Oklahoma', location : 'Norman (OK)', date : '2016-05-24', hour : 0}
 ];
 
 var startDate;
@@ -205,18 +209,29 @@ function createPresetSelect()
 {
   let select = document.getElementById('presetSelect');
 
-  //  console.log(presets);
+  select.innerHTML = '';
+
+  const customOption = document.createElement('option');
+  customOption.value = '';
+  customOption.textContent = 'Custom setup';
+  select.appendChild(customOption);
 
   presets.forEach((preset, index) => {
     const option = document.createElement('option');
-    option.value = index;
+    option.value = String(index);
     option.textContent = preset.name;
     select.appendChild(option);
   });
-  select.value = -1;
+  select.value = '';
 
   select.onchange = function() {
-    let preset = presets[select.selectedIndex];
+    if (select.value === '')
+      return;
+
+    const presetIndex = Number(select.value);
+    let preset = presets[presetIndex];
+    if (!preset)
+      return;
 
     document.getElementById('datePicker').value = preset.date;
 
@@ -224,10 +239,13 @@ function createPresetSelect()
 
     document.getElementById('hourSelector').value = preset.hour;
 
-    stationSelector.selectedIndex = Object.keys(soundingStations).indexOf(preset.location);
-    stationSelector.dispatchEvent(new Event('change', {bubbles : true}));
-
-    prepareSounding();
+    const stationIndex = Object.keys(soundingStations).indexOf(preset.location);
+    if (stationIndex >= 0) {
+      stationSelector.selectedIndex = stationIndex;
+      stationSelector.dispatchEvent(new Event('change', {bubbles : true}));
+    } else {
+      prepareSounding();
+    }
   };
 }
 
@@ -301,7 +319,7 @@ function createStationSelect()
   for (const [key, value] of Object.entries(soundingStations)) {
     let option = document.createElement('option');
     option.value = value.id;
-    option.innerHTML = key + ' ' + value.lat.toFixed(1) + '° N';
+    option.textContent = key + ' ' + value.lat.toFixed(1) + '° N';
     select.appendChild(option);
   }
   select.value = 10868;
